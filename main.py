@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 import requests
 import os
 from uuid import uuid4
+import random  # להוסיף random לבחירה רנדומלית
 
 app = FastAPI(title="MP4 Downloader", description="Downloader proxy for MP4 files - temporary storage only")
 
@@ -12,6 +13,20 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # מאפשר גישה ישירה לקבצים דרך /files/...
 app.mount("/files", StaticFiles(directory=DOWNLOAD_DIR), name="files")
+
+# רשימת פרוקסי חינמיים (עדכנית מ-2026 – HTTPS proxies)
+PROXIES_LIST = [
+    "http://195.158.8.123:3128",    # Uzbekistan
+    "http://94.177.58.26:7443",      # Germany
+    "http://193.24.120.242:1401",    # Iran
+    "http://147.75.34.105:443",      # Netherlands
+    "http://195.133.11.246:1080",    # Russia
+    "http://212.47.232.28:80",       # France
+    "http://163.5.128.97:14270",     # United States
+    "http://185.233.202.217:5858",   # Netherlands
+    "http://89.22.237.70:80",        # Sweden
+    "http://178.239.145.119:80",     # Iran
+]
 
 @app.get("/download")
 async def download_video(url: str):
@@ -37,24 +52,35 @@ async def download_video(url: str):
         "Sec-Fetch-Site": "same-site",
     }
 
-    try:
-        response = requests.get(
-            url,
-            stream=True,
-            timeout=120,               # יותר זמן – וידאו ארוך יכול לקחת
-            headers=headers,
-            allow_redirects=True
-        )
-        response.raise_for_status()  # זורק אם לא 200-299
-    except requests.exceptions.HTTPError as http_err:
-        if response.status_code == 403:
-            raise HTTPException(
-                status_code=400,
-                detail="403 Forbidden - YouTube/Google כנראה חוסם את כתובת ה-IP של השרת (Render). נסה להשתמש בפרוקסי, VPN או yt-dlp במקום."
+    # מערבב את הרשימה כדי לבחור רנדומלי
+    random.shuffle(PROXIES_LIST)
+    success = False
+    error_msg = ""
+
+    # נסה עד 3 פרוקסי
+    for i in range(min(3, len(PROXIES_LIST))):
+        proxy = PROXIES_LIST[i]
+        proxies = {"http": proxy, "https": proxy}
+        try:
+            print(f"מנסה פרוקסי: {proxy}")  # ללוגים – אפשר למחוק
+            response = requests.get(
+                url,
+                stream=True,
+                timeout=120,
+                headers=headers,
+                allow_redirects=True,
+                proxies=proxies
             )
-        raise HTTPException(status_code=400, detail=f"שגיאה בהורדה: {str(http_err)} - סטטוס: {response.status_code}")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"שגיאה בהורדה: {str(e)}")
+            response.raise_for_status()
+            success = True
+            break
+        except requests.exceptions.HTTPError as http_err:
+            error_msg = f"שגיאה עם פרוקסי {proxy}: {str(http_err)} - סטטוס: {response.status_code if 'response' in locals() else 'לא ידוע'}"
+        except Exception as e:
+            error_msg = f"שגיאה עם פרוקסי {proxy}: {str(e)}"
+
+    if not success:
+        raise HTTPException(status_code=400, detail=f"כל הפרוקסי נכשלו: {error_msg}. נסה להחליף פרוקסי ברשימה.")
 
     # כותב את הקובץ
     with open(file_path, 'wb') as f:
