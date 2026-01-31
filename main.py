@@ -19,9 +19,7 @@ async def download_video(url: str):
     מקבל URL של MP4, מוריד אותו לשרת (זמני), ומחזיר קישור חדש להורדה.
     דוגמה: /download?url=https://example.com/video.mp4
     """
-    if not url.lower().endswith('.mp4'):
-        raise HTTPException(status_code=400, detail="ה-URL חייב להסתיים ב-.mp4")
-
+   
     file_name = f"{uuid4()}.mp4"
     file_path = os.path.join(DOWNLOAD_DIR, file_name)
 
