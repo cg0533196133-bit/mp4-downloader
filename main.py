@@ -18,7 +18,7 @@ async def download_video(url: str):
 
     ydl_opts = {
         'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-        'merge_output_format': 'mp4',          # מנסה להמיר ל-mp4 אם צריך (דורש ffmpeg)
+        'merge_output_format': 'mp4',
         'outtmpl': file_path,
         'quiet': True,
         'no_warnings': True,
@@ -26,21 +26,21 @@ async def download_video(url: str):
         'retries': 10,
         'fragment_retries': 10,
         'noplaylist': True,
+        'cookiefile': 'cookies.txt',          # ← כאן! הקובץ חייב להיות באותה תיקייה כמו main.py
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Referer': 'https://www.youtube.com/',
         },
-        # אל תוסיף force_generic_extractor – זה מה שגרם ל-HTML
     }
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
 
-        if not os.path.exists(file_path) or os.path.getsize(file_path) < 10000:  # קובץ קטן מדי = כנראה HTML או שגיאה
+        if not os.path.exists(file_path) or os.path.getsize(file_path) < 10000:
             if os.path.exists(file_path):
                 os.remove(file_path)
-            raise Exception("ההורדה נכשלה – כנראה התקבל קובץ לא תקין (HTML או ריק). בדוק את הקישור.")
+            raise Exception("ההורדה נכשלה – כנראה קובץ לא תקין (HTML/ריק)")
 
     except Exception as e:
         if os.path.exists(file_path):
@@ -48,19 +48,15 @@ async def download_video(url: str):
         raise HTTPException(status_code=400, detail=f"שגיאה בהורדה: {str(e)}")
 
     new_url = f"/files/{file_name}"
-    full_url = f"https://mp4-downloader-zxeu.onrender.com{new_url}"  # שנה לשם השירות שלך אם שונה
+    full_url = f"https://mp4-downloader-zxeu.onrender.com{new_url}"
 
     return {
         "original_url": url,
         "new_url": new_url,
         "full_url": full_url,
-        "note": "הקובץ זמני מאוד! הורד אותו מיד כי /tmp מתנקה. בהצלחה!"
+        "note": "קובץ זמני – הורד מיד!"
     }
 
 @app.get("/")
 async def root():
-    return {
-        "message": "ברוכים הבאים! השתמש ב-/download?url=קישור_ליוטיוב_או_קישור_ישיר",
-        "docs": "/docs"
-    }
-  
+    return {"message": "OK – השתמש ב-/download?url=..."}
