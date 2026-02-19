@@ -17,9 +17,9 @@ os.makedirs(VIDEO_DIR, exist_ok=True)
 jobs = {}  # job_id -> {"status": "recording"/"done", "url": ...}
 
 def record_job(job_id, url, seconds):
-    jobs[job_id] = {"status": "recording"}
-
     try:
+        jobs[job_id] = {"status": "recording"}
+
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(
@@ -27,20 +27,25 @@ def record_job(job_id, url, seconds):
                 viewport={"width": 1280, "height": 720}
             )
             page = context.new_page()
-            page.goto(url, timeout=60000)
-            page.wait_for_timeout(3000)
+            page.goto(url, timeout=120000)   # יותר זמן טעינה
+            page.wait_for_timeout(5000)
+
+            # נסה להפעיל play (ל-YouTube)
             try:
-                page.keyboard.press("k")  # YouTube play
+                page.keyboard.press("k")
             except:
                 pass
 
-            time.sleep(seconds)
+            # במקום time.sleep(seconds), אפשר לחכות בצורה יותר בטוחה
+            start = time.time()
+            while time.time() - start < seconds:
+                time.sleep(1)
 
             context.close()
             browser.close()
 
-        # קובץ MP4 שנוצר
-        mp4_files = [f for f in os.listdir(VIDEO_DIR) if f.endswith(".webm") or f.endswith(".mp4")]
+        # עדכון MP4
+        mp4_files = [f for f in os.listdir(VIDEO_DIR) if f.endswith(".mp4") or f.endswith(".webm")]
         if mp4_files:
             mp4_file = mp4_files[0]
             final_name = f"{job_id}.mp4"
